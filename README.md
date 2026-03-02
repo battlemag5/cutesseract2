@@ -1,1 +1,1 @@
-# mxm
+# cuTesseract
