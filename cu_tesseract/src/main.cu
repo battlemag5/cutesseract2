@@ -34,6 +34,7 @@ __global__ void mul(MatrixView<fp32> dst, MatrixView<fp32> A, MatrixView<fp32> B
 
 signed main() {
     Matrix<fp32> warmup(5, 5);
+    warmup.fill_random();
     warmup.run(set, warmup.view());
 
     size_t rows = 256;
@@ -41,6 +42,7 @@ signed main() {
     cout << rows << "x" << cols << endl;
 
     Matrix<fp32> m(rows, cols);
+    m.fill_random();
     cout << "GPU fill duration: " << m.run(set, m.view()) << "\n";
 
     vector<fp32> host_matrix = m.download();
@@ -59,6 +61,7 @@ signed main() {
     Matrix<fp32> A = Matrix<fp32>(rows, cols);
     Matrix<fp32> B = Matrix<fp32>(cols, rows);
     Matrix<fp32> C = Matrix<fp32>(rows, rows);
+    A.fill_random(); B.fill_random();
     cout << "GPU multiplication duration: " << C.run(mul, C.view(), A.view(), B.view()) << "\n";
 
     vector<fp32> A_host = A.download();
