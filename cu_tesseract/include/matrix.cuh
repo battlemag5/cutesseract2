@@ -9,26 +9,10 @@
 #include <stdexcept>
 #include <iostream>
 #include <utility>
+#include <cuda_runtime.h>
 
 #include "dtypes.cuh"
 
-template <typename T> class Matrix;
-
-template <typename T>
-class MatrixView {
-    T* data;
-
-    friend class Matrix<T>;
-    __host__ MatrixView(size_t r, size_t c, T* d) : rows(r), cols(c), data(d) {}
-
-public:
-    size_t rows, cols;
-
-    __device__ T& operator()(size_t row, size_t column) {
-        assert(row < rows && column < cols);
-        return data[row * cols + column];
-    }
-};
 
 enum class DataLayout {
     ROW_WISE,
@@ -64,7 +48,7 @@ class Matrix {
     size_t numel;
 
 public:
-    __host__ Matrix(size_t rows, size_t cols, DataLayout layout, DataDevice device): rows(rows), cols(cols), device(device) {
+    __host__ Matrix(size_t rows, size_t cols, DataLayout layout, DataDevice device): rows(rows), cols(cols), device(device), layout(layout) {
         numel = sizeof(T) * rows * cols;
 
         if (device == CUDA) {
@@ -135,6 +119,27 @@ public:
         }
     }
 
+    __host__ void to_layout(DataLayout new_layout) {
+        if (layout == new_layout) return;
+
+        if (device == CUDA) {
+            throw std::runtime_error(".to_layout not implemented for CUDA. consider using .cpu()");
+        } else {
+            T* new_buffer = new T[rows * cols];
+            for (size_t i = 0; i < rows; i++) {
+                for (size_t j = 0; j < rows; j++) {
+                    if (layout == ROW_WISE) {
+                        new_buffer[i + j * cols] = cpu_ptr[i * rows + j];
+                    } else {
+                        new_buffer[i * rows + j] = cpu_ptr[i + j * cols];
+                    }
+                }
+            }
+        }
+
+        layout = new_layout;
+    }
+
     __host__ friend std::ostream& operator<<(std::ostream& os, const Matrix& matrix) {
         if (matrix.device == CUDA) {
             throw std::runtime_error("data must be on cpu for printing. consider calling .cpu()");
@@ -156,40 +161,10 @@ public:
         return {rows, cols};
     }
 
-    __host__ MatrixView<T> view() const {
-        assert(device_ptr != nullptr);
-        cudaPointerAttributes attributes;
-        cudaError_t err = cudaPointerGetAttributes(&attributes, device_ptr);
-        if (err != cudaSuccess) {
-            throw std::runtime_error("Not a CUDA pointer!");
-        }
-        bool is_gpu = (attributes.type == cudaMemoryTypeDevice || attributes.type == cudaMemoryTypeManaged);
-        assert(is_gpu);
-
-        return {rows, cols, device_ptr};
+    __host__ DataLayout get_layout() {
+        return layout;
     }
 
-    __host__ std::vector<T> download() const {
-            std::vector<T> host_memory(rows * cols);
-            cudaError_t err = cudaMemcpy(host_memory.data(), device_ptr, rows * cols * sizeof(T), cudaMemcpyDeviceToHost);
-            if (err != cudaSuccess) {
-                throw std::runtime_error("Failed to download matrix from device!");
-            }
-            return host_memory;
-    }
-
-    template <typename KernelFunction, typename... Args>
-    __host__ std::chrono::duration<double, std::milli> run(KernelFunction kernel, Args... args) const {
-        dim3 threads(16, 16);
-        dim3 blocks((cols + threads.x - 1) / threads.x,
-                    (rows + threads.y - 1) / threads.y);
-
-        auto start_time = std::chrono::high_resolution_clock::now();
-        kernel<<<blocks, threads>>>(args...);
-        cudaDeviceSynchronize();
-        auto end_time = std::chrono::high_resolution_clock::now();
-        return end_time - start_time;
-    }
 
     // __host__ T& operator[](size_t i, size_t j) {
     //     /* row-wise operator[] */
