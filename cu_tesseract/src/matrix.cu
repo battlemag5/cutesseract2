@@ -1,6 +1,6 @@
 #include "matrix.cuh"
 
-#include "types.cuh"
+#include "dtypes.cuh"
 
 template class Matrix<fp32>;
 template class MatrixView<fp32>;
