@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cuda_runtime.h>
+
 #include "dtypes.cuh"
 #include "matrix.cuh"
-#include <cuda_runtime.h>
+#include "utils.cuh"
 
 
 /*
@@ -103,7 +105,7 @@ __host__ void _gemm_nkm_simple_launcher(Matrix<fp32> &A, Matrix<fp32> &B, Matrix
                   (N + block_dim.y - 1) / block_dim.y);
 
     _gemm_nkm_simple<N, K, M><<<grid_dim, block_dim>>>(A.item(), B.item(), C.item());
-    // cudaDeviceSynchronize();
+    CUDA_CHECK(cudaDeviceSynchronize());
 }
 
 
@@ -127,5 +129,5 @@ __host__ void _gemm_nn_block_8x8_launcher(Matrix<fp32> &A, Matrix<fp32> &B, Matr
     dim3 grid_dim(N >> 3, N >> 3);
 
     _gemm_nnn_block_8x8_simple<N><<<grid_dim, block_dim>>>(A.item(), B.item(), C.item());
-    // cudaDeviceSynchronize();
+    CUDA_CHECK(cudaDeviceSynchronize());
 }

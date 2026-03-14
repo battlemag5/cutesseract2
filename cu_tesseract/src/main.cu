@@ -4,9 +4,11 @@
 
 #include <iostream>
 #include <chrono>
+#include <vector>
 
 using std::cout;
 using std::endl;
+using std::vector;
 
 constexpr size_t n = 3072, k = 3072, m = 3072;
 // constexpr size_t N = 256;
@@ -32,20 +34,7 @@ void verify_cpu(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
     }
 }
 
-std::chrono::duration<double, std::milli> test_blockwise() {
-    auto A = Matrix<fp32>((size_t)n, (size_t)k, ROW_WISE, CUDA);
-    auto B = Matrix<fp32>((size_t)k, (size_t)m, ROW_WISE, CUDA);
-    auto C = Matrix<fp32>((size_t)n, (size_t)m, ROW_WISE, CUDA);
-
-    A.fill_random(911ull);
-    B.fill_random(911ull);
-
-    // A.ones();
-    // B.ones();
-
-    // A.cuda();
-    // B.cuda();
-
+std::chrono::duration<double, std::milli> test_blockwise(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     _gemm_nn_block_8x8_launcher<n>(A, B, C);
@@ -57,14 +46,7 @@ std::chrono::duration<double, std::milli> test_blockwise() {
     return res;
 }
 
-std::chrono::duration<double, std::milli> test_elementwise() {
-    auto A = Matrix<fp32>((size_t)n, (size_t)k, ROW_WISE, CUDA);
-    auto B = Matrix<fp32>((size_t)k, (size_t)m, ROW_WISE, CUDA);
-    auto C = Matrix<fp32>((size_t)n, (size_t)m, ROW_WISE, CUDA);
-
-    A.fill_random(911ull);
-    B.fill_random(911ull);
-
+std::chrono::duration<double, std::milli> test_elementwise(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     _gemm_nkm_simple_launcher<n, k, m>(A, B, C);
@@ -78,28 +60,42 @@ signed main() {
 
     size_t num_tries = 16;
 
-    std::chrono::duration<double, std::milli> min_block = test_blockwise();
-    std::chrono::duration<double, std::milli> min_element = test_elementwise();
+    vector<Matrix<fp32>*> input_matrices_a;
+    vector<Matrix<fp32>*> input_matrices_b;
+    vector<Matrix<fp32>*> input_matrices_c;
 
-    for (size_t i = 0; i < num_tries; i++) {
-        std::chrono::duration<double, std::milli> cur = test_blockwise();
-        CUDA_CHECK(cudaDeviceSynchronize());
-        if (cur < min_block) {
-            min_block = cur;
-        }
+    Matrix<fp32> *A, *B, *C;
+
+    for (size_t i = 0; i < num_tries + 1; i++) {
+        A = new Matrix<fp32>((size_t)n, (size_t)k, ROW_WISE, CUDA);
+        B = new Matrix<fp32>((size_t)k, (size_t)m, ROW_WISE, CUDA);
+        C = new Matrix<fp32>((size_t)n, (size_t)m, ROW_WISE, CUDA);
+
+        A->fill_random((unsigned long long)(i + 993));
+        B->fill_random((unsigned long long)(i + 993));
+
+        input_matrices_a.push_back(A);
+        input_matrices_b.push_back(B);
+        input_matrices_c.push_back(C);
     }
 
-    cout << "Blockwise GPU multiplication duration: ~" << min_block << "\n";
+    std::chrono::duration<double, std::milli> avg_block = std::chrono::duration<double, std::milli>::zero();
+    std::chrono::duration<double, std::milli> avg_element = std::chrono::duration<double, std::milli>::zero();
+
+    test_blockwise(*input_matrices_a[num_tries], *input_matrices_b[num_tries], *input_matrices_c[num_tries]);
+    test_elementwise(*input_matrices_a[num_tries], *input_matrices_b[num_tries], *input_matrices_c[num_tries]);
 
     for (size_t i = 0; i < num_tries; i++) {
-        std::chrono::duration<double, std::milli> cur = test_elementwise();
-        CUDA_CHECK(cudaDeviceSynchronize());
-        if (cur < min_element) {
-            min_element = cur;
-        }
+        avg_block += test_blockwise(*input_matrices_a[i], *input_matrices_b[i], *input_matrices_c[i]);
     }
 
-    cout << "Elementwise GPU multiplication duration: ~" << min_element << "\n";
+    cout << "Blockwise GPU multiplication duration: ~" << avg_block / (num_tries) << "\n";
+
+    for (size_t i = 0; i < num_tries; i++) {
+        avg_element += test_elementwise(*input_matrices_a[i], *input_matrices_b[i], *input_matrices_c[i]);
+    }
+
+    cout << "Elementwise GPU multiplication duration: ~" << avg_element / (num_tries) << "\n";
 
     return 0;
 }
