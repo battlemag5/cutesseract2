@@ -3,7 +3,6 @@
 
 #include <cassert>
 #include <curand.h>
-#include <chrono>
 #include <cstddef>
 #include <random>
 #include <stdexcept>
@@ -39,17 +38,13 @@ class Matrix {
     T* cpu_ptr;
     T* device_ptr;
 
-    bool on_device;
-    size_t rows, cols;
-
     DataLayout layout;
     DataDevice device;
 
-    size_t numel;
-
 public:
-    __host__ Matrix(size_t rows, size_t cols, DataLayout layout, DataDevice device): rows(rows), cols(cols), device(device), layout(layout) {
-        numel = sizeof(T) * rows * cols;
+    const size_t rows, cols, numel;
+
+    __host__ Matrix(size_t rows, size_t cols, DataLayout layout, DataDevice device): rows(rows), cols(cols), device(device), layout(layout), numel(sizeof(T) * rows * cols) {
 
         if (device == CUDA) {
             cudaMalloc(&device_ptr, numel);
@@ -83,6 +78,16 @@ public:
         }
     }
 
+    __host__ void ones() {
+        assert(device == CPU && layout == ROW_WISE);
+
+        for (size_t i = 0; i < rows; i++) {
+            for (size_t j = 0; j < cols; j++) {
+                cpu_ptr[i * cols + j] = (T)1.0;
+            }
+        }
+    }
+
     __host__ void cpu() {
         if (device == CPU) return;
 
@@ -111,7 +116,7 @@ public:
         cpu_ptr = nullptr;
     }
 
-    __host__ T* item() {
+    __host__ T* item() const {
         if (device == CPU) {
             return cpu_ptr;
         } else {
@@ -157,11 +162,11 @@ public:
         return os;
     }
 
-    __host__ std::pair<size_t, size_t> shape() {
+    __host__ std::pair<size_t, size_t> shape() const {
         return {rows, cols};
     }
 
-    __host__ DataLayout get_layout() {
+    __host__ DataLayout get_layout() const {
         return layout;
     }
 

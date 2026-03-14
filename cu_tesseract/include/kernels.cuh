@@ -26,41 +26,33 @@ equal SMEM per Warp - 32kb
 */
 
 template <size_t N>
-static __global__ void _gemm_nn_block_8x8(
+static __global__ void _gemm_nnn_block_8x8_simple(
     fp32 *A, // row-wise
     fp32 *B, // row-wise
     fp32 *C // row-wise
-    // size_t N // Number of blocks
 ) {
     assert(blockDim.x == 8 && blockDim.y == 8);
 
-    size_t block_col = blockIdx.x * blockDim.x;
-    size_t block_row = blockIdx.y * blockDim.y;
+    size_t blockPtr = N * (blockIdx.y * blockDim.y) + blockDim.x * blockIdx.x;
+    size_t threadPtr = blockPtr + N * threadIdx.y + threadIdx.x;
 
-    // size_t global_col = blockIdx.x * blockDim.x + threadIdx.x;
-    // size_t global_row = blockIdx.y * blockDim.y + threadIdx.y;
+    fp32 sum = 0.0;
 
-    size_t local_x = threadIdx.x;
-    size_t local_y = threadIdx.y;
+    for (size_t s = 0; s < (N >> 3); s++) {
+        size_t a_block_ptr = N * (blockIdx.y * blockDim.y) + s * blockDim.x;
+        size_t b_block_ptr = N * blockDim.y * s + blockIdx.x * blockDim.x;
 
-    __shared__ fp32 block_b[8][8]; // row-wise
-    __shared__ fp32 block_c[8][8]; // row-wise
+        for (size_t k = 0; k < 8; k++) {
+            size_t loc_a_ptr = a_block_ptr + N * threadIdx.y + k;
+            size_t loc_b_ptr = b_block_ptr + threadIdx.x + N * k;
 
-    for (size_t k = 0; k < N; k++) {
-        // block_b[local_x][local_y] = B[block_row + local_x][local_y + N*k];
-        block_b[local_y][local_x] = B[block_col + local_x + (k + local_y) *N*8];
-        __syncthreads();
-
-        block_c[local_y][local_x] = 0;
-
-        for (size_t i = 0; i < 8; i++) {
-            block_c[local_y][local_x] += A[N * block_row + N * 8 * local_y + k*8 + i] * block_b[i][local_x];
+            sum += A[loc_a_ptr] * B[loc_b_ptr];
         }
-
-        C[N * block_row + 8 * N * local_y + block_col + local_x] = block_c[local_y][local_x];
-        __syncthreads();
     }
+
+    C[threadPtr] = sum;
 }
+
 
 template <size_t N, size_t K, size_t M> // n*k x k*m = n*m
 static __global__ void _gemm_nkm_simple(
@@ -73,7 +65,6 @@ static __global__ void _gemm_nkm_simple(
 
     if (row < N && col < M) {
         fp32 sum = 0;
-        C[row * M + col] = 0;
         for (size_t k = 0; k < K; ++k) {
             sum += A[row * K + k] * B[k*M + col];
         }
@@ -122,5 +113,5 @@ __host__ void _gemm_nn_block_8x8_launcher(Matrix<fp32> &A, Matrix<fp32> &B, Matr
     dim3 block_dim(8, 8); // x, y
     dim3 grid_dim(N >> 3, N >> 3);
 
-    _gemm_nn_block_8x8<N><<<grid_dim, block_dim>>>(A.item(), B.item(), C.item());
+    _gemm_nnn_block_8x8_simple<N><<<grid_dim, block_dim>>>(A.item(), B.item(), C.item());
 }
