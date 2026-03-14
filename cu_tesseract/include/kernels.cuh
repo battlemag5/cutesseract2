@@ -38,16 +38,28 @@ static __global__ void _gemm_nnn_block_8x8_simple(
 
     fp32 sum = 0.0;
 
+    __shared__ fp32 block_a[8][8];
+    __shared__ fp32 block_b[8][8];
+
     for (size_t s = 0; s < (N >> 3); s++) {
         size_t a_block_ptr = N * (blockIdx.y * blockDim.y) + s * blockDim.x;
         size_t b_block_ptr = N * blockDim.y * s + blockIdx.x * blockDim.x;
 
-        for (size_t k = 0; k < 8; k++) {
-            size_t loc_a_ptr = a_block_ptr + N * threadIdx.y + k;
-            size_t loc_b_ptr = b_block_ptr + threadIdx.x + N * k;
+        block_a[threadIdx.y][threadIdx.x] = A[a_block_ptr + threadIdx.x + threadIdx.y * N];
+        block_b[threadIdx.y][threadIdx.x] = B[b_block_ptr + threadIdx.x + threadIdx.y * N];
 
-            sum += A[loc_a_ptr] * B[loc_b_ptr];
+        __syncthreads();
+
+        for (size_t k = 0; k < 8; k++) {
+            // size_t loc_a_ptr = a_block_ptr + N * threadIdx.y + k;
+            // size_t loc_b_ptr = b_block_ptr + threadIdx.x + N * k;
+
+            // sum += A[loc_a_ptr] * B[loc_b_ptr];
+
+            sum += block_a[threadIdx.y][k] * block_b[k][threadIdx.x];
         }
+
+        __syncthreads();
     }
 
     C[threadPtr] = sum;
@@ -91,6 +103,7 @@ __host__ void _gemm_nkm_simple_launcher(Matrix<fp32> &A, Matrix<fp32> &B, Matrix
                   (N + block_dim.y - 1) / block_dim.y);
 
     _gemm_nkm_simple<N, K, M><<<grid_dim, block_dim>>>(A.item(), B.item(), C.item());
+    // cudaDeviceSynchronize();
 }
 
 
@@ -114,4 +127,5 @@ __host__ void _gemm_nn_block_8x8_launcher(Matrix<fp32> &A, Matrix<fp32> &B, Matr
     dim3 grid_dim(N >> 3, N >> 3);
 
     _gemm_nnn_block_8x8_simple<N><<<grid_dim, block_dim>>>(A.item(), B.item(), C.item());
+    // cudaDeviceSynchronize();
 }

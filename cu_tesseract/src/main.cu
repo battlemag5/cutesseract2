@@ -1,5 +1,6 @@
 #include "matrix.cuh"
 #include "kernels.cuh"
+#include "utils.cuh"
 
 #include <iostream>
 #include <chrono>
@@ -9,17 +10,6 @@ using std::endl;
 
 constexpr size_t n = 3072, k = 3072, m = 3072;
 // constexpr size_t N = 256;
-
-void warmup() {
-    auto A = Matrix<fp32>((size_t)256, (size_t)256, ROW_WISE, CUDA);
-    auto B = Matrix<fp32>((size_t)256, (size_t)256, ROW_WISE, CUDA);
-    auto C = Matrix<fp32>((size_t)256, (size_t)256, ROW_WISE, CUDA);
-
-    A.fill_random();
-    B.fill_random();
-
-    _gemm_nkm_simple_launcher<256, 256, 256>(A, B, C);
-}
 
 
 void verify_cpu(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
@@ -34,7 +24,7 @@ void verify_cpu(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
                 sum += A.get(i, r) * B.get(r, j);
             }
 
-            if (std::abs(sum - C.get(i, j)) >= 1e-3) {
+            if (std::abs(sum - C.get(i, j)) >= 1e-4) {
                 cout << sum << ' ' << C.get(i, j) << " (" << i << ", " << j << ")\n";
                 throw std::runtime_error("verification failed");
             }
@@ -56,14 +46,15 @@ std::chrono::duration<double, std::milli> test_blockwise() {
     // A.cuda();
     // B.cuda();
 
-    // warmup();
     auto start_time = std::chrono::high_resolution_clock::now();
 
     _gemm_nn_block_8x8_launcher<n>(A, B, C);
 
-    return std::chrono::high_resolution_clock::now() - start_time;
+
+    std::chrono::duration<double, std::milli> res = std::chrono::high_resolution_clock::now() - start_time;
 
     // verify_cpu(A, B, C);
+    return res;
 }
 
 std::chrono::duration<double, std::milli> test_elementwise() {
@@ -74,7 +65,6 @@ std::chrono::duration<double, std::milli> test_elementwise() {
     A.fill_random(911ull);
     B.fill_random(911ull);
 
-    // warmup();
     auto start_time = std::chrono::high_resolution_clock::now();
 
     _gemm_nkm_simple_launcher<n, k, m>(A, B, C);
@@ -93,6 +83,7 @@ signed main() {
 
     for (size_t i = 0; i < num_tries; i++) {
         std::chrono::duration<double, std::milli> cur = test_blockwise();
+        CUDA_CHECK(cudaDeviceSynchronize());
         if (cur < min_block) {
             min_block = cur;
         }
@@ -102,6 +93,7 @@ signed main() {
 
     for (size_t i = 0; i < num_tries; i++) {
         std::chrono::duration<double, std::milli> cur = test_elementwise();
+        CUDA_CHECK(cudaDeviceSynchronize());
         if (cur < min_element) {
             min_element = cur;
         }
@@ -111,3 +103,5 @@ signed main() {
 
     return 0;
 }
+
+// nsys profile --gpu-metrics-devices=all --cpuctxsw=process-tree --sample=process-tree -o test_profile ./cutesseract

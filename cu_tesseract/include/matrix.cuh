@@ -11,6 +11,7 @@
 #include <cuda_runtime.h>
 
 #include "dtypes.cuh"
+#include "utils.cuh"
 
 
 enum class DataLayout {
@@ -25,12 +26,6 @@ enum class DataDevice {
 
 using enum DataLayout;
 using enum DataDevice;
-
-struct Shape
-{
-    size_t rows;
-    size_t cols;
-};
 
 
 template <typename T>
@@ -47,7 +42,7 @@ public:
     __host__ Matrix(size_t rows, size_t cols, DataLayout layout, DataDevice device): rows(rows), cols(cols), device(device), layout(layout), numel(sizeof(T) * rows * cols) {
 
         if (device == CUDA) {
-            cudaMalloc(&device_ptr, numel);
+            CUDA_CHECK(cudaMalloc(&device_ptr, numel));
             cpu_ptr = nullptr;
         } else {
             cpu_ptr = new T[rows * cols];
@@ -58,7 +53,7 @@ public:
 
     __host__ ~Matrix() {
         if (device == CUDA) {
-            cudaFree(device_ptr);
+            CUDA_CHECK(cudaFree(device_ptr));
         } else {
             delete cpu_ptr;
         }
@@ -94,13 +89,9 @@ public:
         device = CPU;
 
         cpu_ptr = new T[cols * rows];
-        cudaError_t err = cudaMemcpy(cpu_ptr, device_ptr, numel, cudaMemcpyDeviceToHost);
+        CUDA_CHECK(cudaMemcpy(cpu_ptr, device_ptr, numel, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaFree(device_ptr));
 
-        if (err != cudaSuccess) {
-            throw std::runtime_error("Cuda internal error");
-        }
-
-        cudaFree(device_ptr);
         device_ptr = nullptr;
     }
 
@@ -109,8 +100,8 @@ public:
 
         device = CUDA;
 
-        cudaMalloc(&device_ptr, numel);
-        cudaMemcpy(device_ptr, cpu_ptr, numel, cudaMemcpyHostToDevice);
+        CUDA_CHECK(cudaMalloc(&device_ptr, numel));
+        CUDA_CHECK(cudaMemcpy(device_ptr, cpu_ptr, numel, cudaMemcpyHostToDevice));
 
         delete cpu_ptr;
         cpu_ptr = nullptr;
@@ -169,24 +160,6 @@ public:
     __host__ DataLayout get_layout() const {
         return layout;
     }
-
-
-    // __host__ T& operator[](size_t i, size_t j) {
-    //     /* row-wise operator[] */
-
-    //     if (i >= rows || j >= cols) {
-    //         throw std::out_of_range("Index out of bounds");
-    //     }
-    //     if (device == CUDA) {
-    //         throw std::runtime_error("data must be on cpu to get value. consider calling .cpu()");
-    //     }
-
-    //     if (layout == ROW_WISE) {
-    //         return cpu_ptr[i][j];
-    //     } else {
-    //         return cpu_ptr[j][i];
-    //     }
-    // }
 
     __host__ T get(size_t i, size_t j) const {
         /* row-wise getter */
