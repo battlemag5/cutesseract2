@@ -55,7 +55,7 @@ public:
         if (device == CUDA) {
             CUDA_CHECK(cudaFree(device_ptr));
         } else {
-            delete cpu_ptr;
+            delete[] cpu_ptr;
         }
     }
 
@@ -103,7 +103,7 @@ public:
         CUDA_CHECK(cudaMalloc(&device_ptr, numel));
         CUDA_CHECK(cudaMemcpy(device_ptr, cpu_ptr, numel, cudaMemcpyHostToDevice));
 
-        delete cpu_ptr;
+        delete[] cpu_ptr;
         cpu_ptr = nullptr;
     }
 
