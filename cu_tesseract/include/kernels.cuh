@@ -27,23 +27,23 @@ equal SMEM per Warp - 32kb
 
 */
 
-template <size_t N>
-static __global__ void _gemm_nnn_block_8x8_simple(
+template <size_t N, size_t BS>
+static __global__ void _gemm_nnn_block_simple(
     fp32 *A, // row-wise
     fp32 *B, // row-wise
     fp32 *C // row-wise
 ) {
-    assert(blockDim.x == 8 && blockDim.y == 8);
+    assert(blockDim.x == BS && blockDim.y == BS);
 
     size_t blockPtr = N * (blockIdx.y * blockDim.y) + blockDim.x * blockIdx.x;
     size_t threadPtr = blockPtr + N * threadIdx.y + threadIdx.x;
 
     fp32 sum = 0.0;
 
-    __shared__ fp32 block_a[8][8];
-    __shared__ fp32 block_b[8][8];
+    __shared__ fp32 block_a[BS][BS];
+    __shared__ fp32 block_b[BS][BS];
 
-    for (size_t s = 0; s < (N >> 3); s++) {
+    for (size_t s = 0; s < (N / BS); s++) {
         size_t a_block_ptr = N * (blockIdx.y * blockDim.y) + s * blockDim.x;
         size_t b_block_ptr = N * blockDim.y * s + blockIdx.x * blockDim.x;
 
@@ -52,7 +52,7 @@ static __global__ void _gemm_nnn_block_8x8_simple(
 
         __syncthreads();
 
-        for (size_t k = 0; k < 8; k++) {
+        for (size_t k = 0; k < BS; k++) {
             // size_t loc_a_ptr = a_block_ptr + N * threadIdx.y + k;
             // size_t loc_b_ptr = b_block_ptr + threadIdx.x + N * k;
 
@@ -109,13 +109,13 @@ __host__ void _gemm_nkm_simple_launcher(Matrix<fp32> &A, Matrix<fp32> &B, Matrix
 }
 
 
-template <size_t N>
-__host__ void _gemm_nn_block_8x8_launcher(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
+template <size_t N, size_t BS>
+__host__ void _gemm_nn_block_launcher(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
     assert(A.shape().first == N && A.shape().second == N);
     assert(B.shape().first == N && B.shape().second == N);
     assert(C.shape().first == N && C.shape().second == N);
 
-    assert((N % 8) == 0);
+    assert((N % BS) == 0);
 
     assert(A.get_layout() == ROW_WISE);
     assert(B.get_layout() == ROW_WISE);
@@ -125,9 +125,9 @@ __host__ void _gemm_nn_block_8x8_launcher(Matrix<fp32> &A, Matrix<fp32> &B, Matr
     B.cuda();
     C.cuda();
 
-    dim3 block_dim(8, 8); // x, y
-    dim3 grid_dim(N >> 3, N >> 3);
+    dim3 block_dim(BS, BS); // x, y
+    dim3 grid_dim(N / BS, N / BS);
 
-    _gemm_nnn_block_8x8_simple<N><<<grid_dim, block_dim>>>(A.item(), B.item(), C.item());
+    _gemm_nnn_block_simple<N, BS><<<grid_dim, block_dim>>>(A.item(), B.item(), C.item());
     CUDA_CHECK(cudaDeviceSynchronize());
 }

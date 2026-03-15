@@ -37,7 +37,7 @@ void verify_cpu(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
 std::chrono::duration<double, std::milli> test_blockwise(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    _gemm_nn_block_8x8_launcher<n>(A, B, C);
+    _gemm_nn_block_launcher<n, 16>(A, B, C);
 
 
     std::chrono::duration<double, std::milli> res = std::chrono::high_resolution_clock::now() - start_time;
@@ -100,4 +100,4 @@ signed main() {
     return 0;
 }
 
-// nsys profile --gpu-metrics-devices=all --cpuctxsw=process-tree --sample=process-tree -o test_profile ./cutesseract
+// nsys profile --show-output=true --gpu-metrics-devices=all --cpuctxsw=process-tree --sample=process-tree -o test_profile ./cutesseract
