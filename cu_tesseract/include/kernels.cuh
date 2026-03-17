@@ -104,6 +104,7 @@ __host__ void _gemm_nkm_simple_launcher(Matrix<fp32> &A, Matrix<fp32> &B, Matrix
     dim3 grid_dim((M + block_dim.x - 1) / block_dim.x,
                   (N + block_dim.y - 1) / block_dim.y);
 
+    cudaFuncSetCacheConfig(_gemm_nkm_simple<N, K, M>, cudaFuncCachePreferL1);
     _gemm_nkm_simple<N, K, M><<<grid_dim, block_dim>>>(A.item(), B.item(), C.item());
     CUDA_CHECK(cudaDeviceSynchronize());
 }
@@ -128,6 +129,7 @@ __host__ void _gemm_nn_block_launcher(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<f
     dim3 block_dim(BS, BS); // x, y
     dim3 grid_dim(N / BS, N / BS);
 
+    cudaFuncSetCacheConfig(_gemm_nnn_block_simple<N, BS>, cudaFuncCachePreferShared);
     _gemm_nnn_block_simple<N, BS><<<grid_dim, block_dim>>>(A.item(), B.item(), C.item());
     CUDA_CHECK(cudaDeviceSynchronize());
 }
