@@ -36,8 +36,8 @@ class Matrix {
     DataLayout layout;
     DataDevice device;
 
+    size_t rows, cols, numel;
 public:
-    const size_t rows, cols, numel;
 
     __host__ Matrix(size_t rows, size_t cols, DataLayout layout, DataDevice device): rows(rows), cols(cols), device(device), layout(layout), numel(sizeof(T) * rows * cols) {
 
@@ -57,6 +57,28 @@ public:
         } else {
             delete[] cpu_ptr;
         }
+    }
+
+    __host__ Matrix(const Matrix& other) = delete;
+    __host__ Matrix& operator=(const Matrix& other) = delete;
+
+    __host__ Matrix(Matrix&& other): cpu_ptr(nullptr), device_ptr(nullptr), rows(0), cols(0), numel(0), layout(ROW_WISE), device(CPU) {
+        this->swap(other);
+    }
+
+    __host__ Matrix& operator=(Matrix&& other) {
+        this->swap(other);
+        return *this;
+    }
+
+    __host__ void swap(Matrix& other) {
+        std::swap(cpu_ptr, other.cpu_ptr);
+        std::swap(device_ptr, other.device_ptr);
+        std::swap(layout, other.layout);
+        std::swap(device, other.device);
+        std::swap(rows, other.rows);
+        std::swap(cols, other.cols);
+        std::swap(numel, other.numel);
     }
 
     __host__ void fill_random(unsigned long long seed = 812ULL) {
@@ -118,13 +140,14 @@ public:
     __host__ void to_layout(DataLayout new_layout) {
         if (layout == new_layout) return;
 
+        T* new_buffer = new T[rows * cols];
+
         if (device == CUDA) {
             throw std::runtime_error(".to_layout not implemented for CUDA. consider using .cpu()");
         } else {
-            T* new_buffer = new T[rows * cols];
             for (size_t i = 0; i < rows; i++) {
-                for (size_t j = 0; j < rows; j++) {
-                    if (layout == ROW_WISE) {
+                for (size_t j = 0; j < cols; j++) {
+                    if (new_layout == ROW_WISE) {
                         new_buffer[i + j * cols] = cpu_ptr[i * rows + j];
                     } else {
                         new_buffer[i * rows + j] = cpu_ptr[i + j * cols];
@@ -132,6 +155,9 @@ public:
                 }
             }
         }
+
+        delete[] cpu_ptr;
+        cpu_ptr = new_buffer;
 
         layout = new_layout;
     }

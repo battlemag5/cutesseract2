@@ -35,8 +35,8 @@ static __global__ void _gemm_nnn_block_simple(
 ) {
     assert(blockDim.x == BS && blockDim.y == BS);
 
-    size_t blockPtr = N * (blockIdx.y * blockDim.y) + blockDim.x * blockIdx.x;
-    size_t threadPtr = blockPtr + N * threadIdx.y + threadIdx.x;
+    size_t row = blockIdx.y * BS + threadIdx.y;
+    size_t col = blockIdx.x * BS + threadIdx.x;
 
     fp32 sum = 0.0;
 
@@ -44,27 +44,19 @@ static __global__ void _gemm_nnn_block_simple(
     __shared__ fp32 block_b[BS][BS];
 
     for (size_t s = 0; s < (N / BS); s++) {
-        size_t a_block_ptr = N * (blockIdx.y * blockDim.y) + s * blockDim.x;
-        size_t b_block_ptr = N * blockDim.y * s + blockIdx.x * blockDim.x;
 
-        block_a[threadIdx.y][threadIdx.x] = A[a_block_ptr + threadIdx.x + threadIdx.y * N];
-        block_b[threadIdx.y][threadIdx.x] = B[b_block_ptr + threadIdx.x + threadIdx.y * N];
+        block_a[threadIdx.y][threadIdx.x] = A[row * N + (s * BS + threadIdx.x)];
+        block_b[threadIdx.y][threadIdx.x] = B[(s * BS + threadIdx.y) * N + col];
 
         __syncthreads();
 
-        for (size_t k = 0; k < BS; k++) {
-            // size_t loc_a_ptr = a_block_ptr + N * threadIdx.y + k;
-            // size_t loc_b_ptr = b_block_ptr + threadIdx.x + N * k;
-
-            // sum += A[loc_a_ptr] * B[loc_b_ptr];
-
+        for (size_t k = 0; k < BS; k++)
             sum += block_a[threadIdx.y][k] * block_b[k][threadIdx.x];
-        }
 
         __syncthreads();
     }
 
-    C[threadPtr] = sum;
+    C[row * N + col] = sum;
 }
 
 

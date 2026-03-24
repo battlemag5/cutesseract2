@@ -100,4 +100,4 @@ signed main() {
     return 0;
 }
 
-// nsys profile --show-output=true --gpu-metrics-devices=all --cpuctxsw=process-tree --sample=process-tree -o test_profile ./cutesseract
+// nsys profile --gpu-metrics-devices=all --cpuctxsw=process-tree --sample=process-tree -o test_profile ./cutesseract
