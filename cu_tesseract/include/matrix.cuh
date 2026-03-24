@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <utility>
+#include <string.h>
 #include <cuda_runtime.h>
 
 #include "dtypes.cuh"
@@ -59,8 +60,42 @@ public:
         }
     }
 
-    __host__ Matrix(const Matrix& other) = delete;
-    __host__ Matrix& operator=(const Matrix& other) = delete;
+    __host__ Matrix(const Matrix& other): cpu_ptr(nullptr), device_ptr(nullptr), rows(other.rows), cols(other.cols), numel(other.numel), layout(other.layout), device(other.device) {
+        if (device == CPU) {
+            cpu_ptr = new T[rows * cols];
+            memcpy(cpu_ptr, other.cpu_ptr, numel);
+        } else {
+            CUDA_CHECK(cudaMalloc(&device_ptr, numel));
+            cudaMemcpy(device_ptr, other.device_ptr, numel, cudaMemcpyDeviceToDevice);
+        }
+    }
+
+    __host__ Matrix& operator=(const Matrix& other) {
+        rows = other.rows;
+        cols = other.cols;
+        numel = other.numel;
+        layout = other.layout;
+
+
+        if (device == CPU) {
+            delete[] cpu_ptr;
+            cpu_ptr = nullptr;
+        }
+        else {
+            CUDA_CHECK(cudaFree(device_ptr));
+            device_ptr = nullptr;
+        }
+
+        device = other.device;
+
+        if (device == CPU) {
+            cpu_ptr = new T[rows * cols];
+            memcpy(cpu_ptr, other.cpu_ptr, numel);
+        } else {
+            CUDA_CHECK(cudaMalloc(&device_ptr, numel));
+            cudaMemcpy(device_ptr, other.device_ptr, numel, cudaMemcpyDeviceToDevice);
+        }
+    }
 
     __host__ Matrix(Matrix&& other): cpu_ptr(nullptr), device_ptr(nullptr), rows(0), cols(0), numel(0), layout(ROW_WISE), device(CPU) {
         this->swap(other);
