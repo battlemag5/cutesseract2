@@ -1,97 +1,103 @@
 #include "matrix.cuh"
+#include "kernels.cuh"
+#include "utils.cuh"
+
 #include <iostream>
+#include <chrono>
+#include <vector>
 
 using std::cout;
 using std::endl;
 using std::vector;
 
-__global__ void set(MatrixView<fp32> view) {
-    // thread coords in grid
-    size_t col = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t row = blockIdx.y * blockDim.y + threadIdx.y;
+constexpr size_t n = 3072, k = 3072, m = 3072;
+// constexpr size_t N = 256;
 
-    if (row < view.rows && col < view.cols) {
-        view(row, col) = 42;
+
+void verify_cpu(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
+    A.cpu();
+    B.cpu();
+    C.cpu();
+
+    for (size_t i = 0; i < n; i++) {
+        for (size_t j = 0; j < m; j++) {
+            fp32 sum = 0.0;
+            for (size_t r = 0; r < k; r++) {
+                sum += A.get(i, r) * B.get(r, j);
+            }
+
+            if (std::abs(sum - C.get(i, j)) >= 1e-4) {
+                cout << sum << ' ' << C.get(i, j) << " (" << i << ", " << j << ")\n";
+                throw std::runtime_error("verification failed");
+            }
+        }
     }
 }
 
-__global__ void mul(MatrixView<fp32> dst, MatrixView<fp32> A, MatrixView<fp32> B) {
-    assert(A.cols == B.rows);
-    assert(dst.rows == A.rows && dst.cols == B.cols);
+std::chrono::duration<double, std::milli> test_blockwise(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
+    auto start_time = std::chrono::high_resolution_clock::now();
 
-    // thread coords in grid
-    size_t col = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t row = blockIdx.y * blockDim.y + threadIdx.y;
+    _gemm_nn_block_launcher<n, 16>(A, B, C);
 
-    if (row < dst.rows && col < dst.cols) {
-        fp32 sum = 0;
-        for (size_t k = 0; k < A.cols; ++k) {
-            sum += A(row, k) * B(k, col);
-        }
-        dst(row, col) = sum;
-    }
+
+    std::chrono::duration<double, std::milli> res = std::chrono::high_resolution_clock::now() - start_time;
+
+    // verify_cpu(A, B, C);
+    return res;
+}
+
+std::chrono::duration<double, std::milli> test_elementwise(Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    _gemm_nkm_simple_launcher<n, k, m>(A, B, C);
+
+    return std::chrono::high_resolution_clock::now() - start_time;
+
+    // verify_cpu(A, B, C);
 }
 
 signed main() {
-    Matrix<fp32> warmup(5, 5);
-    warmup.fill_random();
-    warmup.run(set, warmup.view());
 
-    size_t rows = 256;
-    size_t cols = 1024;
-    cout << rows << "x" << cols << endl;
+    size_t num_tries = 16;
 
-    Matrix<fp32> m(rows, cols);
-    m.fill_random();
-    cout << "GPU fill duration: " << m.run(set, m.view()) << "\n";
+    vector<Matrix<fp32>*> input_matrices_a;
+    vector<Matrix<fp32>*> input_matrices_b;
+    vector<Matrix<fp32>*> input_matrices_c;
 
-    vector<fp32> host_matrix = m.download();
-    bool all_correct = true;
-    for (size_t i = 0; i < host_matrix.size(); ++i) {
-        if (host_matrix[i] != 42) {
-            cout << "Wrong value at index " << i << ": " << host_matrix[i] << endl;
-            all_correct = false;
-            break;
-        }
-    }
-    if (all_correct) {
-        cout << "filling success!" << endl;
+    Matrix<fp32> *A, *B, *C;
+
+    for (size_t i = 0; i < num_tries + 1; i++) {
+        A = new Matrix<fp32>((size_t)n, (size_t)k, ROW_WISE, CUDA);
+        B = new Matrix<fp32>((size_t)k, (size_t)m, ROW_WISE, CUDA);
+        C = new Matrix<fp32>((size_t)n, (size_t)m, ROW_WISE, CUDA);
+
+        A->fill_random((unsigned long long)(i + 993));
+        B->fill_random((unsigned long long)(i + 993));
+
+        input_matrices_a.push_back(A);
+        input_matrices_b.push_back(B);
+        input_matrices_c.push_back(C);
     }
 
-    Matrix<fp32> A = Matrix<fp32>(rows, cols);
-    Matrix<fp32> B = Matrix<fp32>(cols, rows);
-    Matrix<fp32> C = Matrix<fp32>(rows, rows);
-    A.fill_random(); B.fill_random();
-    cout << "GPU multiplication duration: " << C.run(mul, C.view(), A.view(), B.view()) << "\n";
+    std::chrono::duration<double, std::milli> avg_block = std::chrono::duration<double, std::milli>::zero();
+    std::chrono::duration<double, std::milli> avg_element = std::chrono::duration<double, std::milli>::zero();
 
-    vector<fp32> A_host = A.download();
-    vector<fp32> B_host = B.download();
-    vector<fp32> actual = C.download();
-    vector<fp32> expected(C.rows * C.cols);
+    test_blockwise(*input_matrices_a[num_tries], *input_matrices_b[num_tries], *input_matrices_c[num_tries]);
+    test_elementwise(*input_matrices_a[num_tries], *input_matrices_b[num_tries], *input_matrices_c[num_tries]);
 
-    auto start_time = std::chrono::high_resolution_clock::now();
-    for (size_t i = 0; i < C.rows; ++i) {
-        for (size_t j = 0; j < C.cols; ++j) {
-            fp32 sum = 0;
-            for (size_t k = 0; k < A.cols; ++k) {
-                sum += A_host[i * A.cols + k] * B_host[k * C.cols + j];
-            }
-            expected[i * C.cols + j] = sum;
-        }
+    for (size_t i = 0; i < num_tries; i++) {
+        avg_block += test_blockwise(*input_matrices_a[i], *input_matrices_b[i], *input_matrices_c[i]);
     }
-    auto end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> ms = end_time - start_time;
-    cout << "CPU multiplication duration: " << ms << "\n";
 
-    all_correct = true;
-    for (size_t i = 0; i < actual.size(); ++i) {
-        if (std::abs(actual[i] - expected[i]) > 1e-3) {
-            cout << "Wrong value at index " << i << ": " << actual[i] << endl;
-            all_correct = false;
-            break;
-        }
+    cout << "Blockwise GPU multiplication duration: ~" << avg_block / (num_tries) << "\n";
+
+    for (size_t i = 0; i < num_tries; i++) {
+        avg_element += test_elementwise(*input_matrices_a[i], *input_matrices_b[i], *input_matrices_c[i]);
     }
-    if (all_correct) {
-        cout << "multiplication success!" << endl;
-    }
+
+    cout << "Elementwise GPU multiplication duration: ~" << avg_element / (num_tries) << "\n";
+
+    return 0;
 }
+
+// nsys profile --gpu-metrics-devices=all --cpuctxsw=process-tree --sample=process-tree -o test_profile ./cutesseract
