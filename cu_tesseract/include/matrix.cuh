@@ -118,12 +118,13 @@ public:
 
     __host__ void fill_random(unsigned long long seed = 812ULL) {
         if (device == CUDA) {
-            assert(sizeof(T) == sizeof(fp32)); // curandGenerateUniform is only for float32
-
             curandGenerator_t gen;
             curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
             curandSetPseudoRandomGeneratorSeed(gen, seed);
-            curandGenerateUniform(gen, device_ptr, rows * cols);
+            if (sizeof(T) == sizeof(fp32))
+                curandGenerateUniform(gen, device_ptr, rows * cols);
+            else
+                curandGenerateUniformDouble(gen, device_ptr, rows * cols);
             curandDestroyGenerator(gen);
         } else {
             throw std::runtime_error("Random init not implemented for cpu");
