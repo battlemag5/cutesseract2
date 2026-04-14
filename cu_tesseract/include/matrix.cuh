@@ -105,6 +105,98 @@ public:
         this->swap(other);
         return *this;
     }
+    __global__ void matrix_add_kernel(const T* A, const T* B, T* C, size_t numel) {
+        size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx < numel) {
+            C[idx] = A[idx] + B[idx];
+        }
+    }
+
+    __global__ void matrix_sub_kernel(const T* A, const T* B, T* C, size_t numel) {
+        size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx < numel) {
+            C[idx] = A[idx] - B[idx];
+        }
+    }
+    __host__ Matrix operator+(const Matrix& other) const {
+        assert(rows == other.rows && cols == other.cols);
+        assert(layout == other.layout);
+        assert(device == other.device);
+
+        Matrix result(rows, cols, layout, device);
+
+        if (device == CPU) {
+            for (size_t i = 0; i < numel / sizeof(T); ++i) {
+                result.cpu_ptr[i] = cpu_ptr[i] + other.cpu_ptr[i];
+            }
+        } else {
+            dim3 block(256);
+            dim3 grid((numel / sizeof(T) + block.x - 1) / block.x);
+            matrix_add_kernel<T><<<grid, block>>>(device_ptr, other.device_ptr, result.device_ptr, numel / sizeof(T));
+            CUDA_CHECK(cudaDeviceSynchronize());
+        }
+
+        return result;
+    }
+
+    __host__ Matrix operator-(const Matrix& other) const {
+        assert(rows == other.rows && cols == other.cols);
+        assert(layout == other.layout);
+        assert(device == other.device);
+
+        Matrix result(rows, cols, layout, device);
+
+        if (device == CPU) {
+            for (size_t i = 0; i < numel / sizeof(T); ++i) {
+                result.cpu_ptr[i] = cpu_ptr[i] - other.cpu_ptr[i];
+            }
+        } else {
+            dim3 block(256);
+            dim3 grid((numel / sizeof(T) + block.x - 1) / block.x);
+            matrix_sub_kernel<T><<<grid, block>>>(device_ptr, other.device_ptr, result.device_ptr, numel / sizeof(T));
+            CUDA_CHECK(cudaDeviceSynchronize());
+        }
+
+        return result;
+    }
+
+    __host__ Matrix& operator+=(const Matrix& other) {
+        assert(rows == other.rows && cols == other.cols);
+        assert(layout == other.layout);
+        assert(device == other.device);
+
+        if (device == CPU) {
+            for (size_t i = 0; i < numel / sizeof(T); ++i) {
+                cpu_ptr[i] += other.cpu_ptr[i];
+            }
+        } else {
+            dim3 block(256);
+            dim3 grid((numel / sizeof(T) + block.x - 1) / block.x);
+            matrix_add_kernel<T><<<grid, block>>>(device_ptr, other.device_ptr, device_ptr, numel / sizeof(T));
+            CUDA_CHECK(cudaDeviceSynchronize());
+        }
+
+        return *this;
+    }
+
+    __host__ Matrix& operator-=(const Matrix& other) {
+        assert(rows == other.rows && cols == other.cols);
+        assert(layout == other.layout);
+        assert(device == other.device);
+
+        if (device == CPU) {
+            for (size_t i = 0; i < numel / sizeof(T); ++i) {
+                cpu_ptr[i] -= other.cpu_ptr[i];
+            }
+        } else {
+            dim3 block(256);
+            dim3 grid((numel / sizeof(T) + block.x - 1) / block.x);
+            matrix_sub_kernel<T><<<grid, block>>>(device_ptr, other.device_ptr, device_ptr, numel / sizeof(T));
+            CUDA_CHECK(cudaDeviceSynchronize());
+        }
+
+        return *this;
+    }
 
     __host__ void swap(Matrix& other) {
         std::swap(cpu_ptr, other.cpu_ptr);
@@ -179,6 +271,7 @@ public:
         T* new_buffer = new T[rows * cols];
 
         if (device == CUDA) {
+            delete[] new_buffer;
             throw std::runtime_error(".to_layout not implemented for CUDA. consider using .cpu()");
         } else {
             for (size_t i = 0; i < rows; i++) {
