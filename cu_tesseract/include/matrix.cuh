@@ -121,10 +121,10 @@ public:
             curandGenerator_t gen;
             curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
             curandSetPseudoRandomGeneratorSeed(gen, seed);
-            if (sizeof(T) == sizeof(fp32))
-                curandGenerateUniform(gen, device_ptr, rows * cols);
-            else
-                curandGenerateUniformDouble(gen, device_ptr, rows * cols);
+            assert (sizeof(T) == sizeof(fp32));
+            curandGenerateUniform(gen, device_ptr, rows * cols);
+            // else
+            //     curandGenerateUniformDouble(gen, device_ptr, rows * cols);
             curandDestroyGenerator(gen);
         } else {
             throw std::runtime_error("Random init not implemented for cpu");

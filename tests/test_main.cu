@@ -63,7 +63,7 @@ Matrix<T> mmul_cpu(Matrix<T> A, Matrix<T> B) {
 }
 
 
-signed test(unsigned rows1, unsigned cols1, unsigned rows2, unsigned cols2, (void) (*mul_function)(Matrix<T>, Matrix<T>, Matrix<T>)) {
+signed test(unsigned rows1, unsigned cols1, unsigned rows2, unsigned cols2, (void) (*mul_function)(Matrix<T>, Matrix<T>, Matrix<T>), T precision = 1e-3) {
     assert(rows1 == cols2 && "геи\n");
     unsigned runs = RUNS_NUM;
         for (unsigned i = 0; i < runs; i++) {
@@ -77,7 +77,7 @@ signed test(unsigned rows1, unsigned cols1, unsigned rows2, unsigned cols2, (voi
             Matrix<fp32> C = mmul_cpu(A, B);
     
             auto diff = froebenius(C, G);
-            if (diff > 1e-3) {
+            if (diff > precision) {
                 auto diffs_ij = diffs(C, G);
                 cout << "Differing indices: ";
                 for (auto& p : diffs_ij) {
