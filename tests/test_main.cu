@@ -74,6 +74,8 @@ signed test(unsigned rows1, unsigned cols1, unsigned rows2, unsigned cols2, (voi
             A.fill_random(i);
             B.fill_random(i + 1);
             mul_function(A, B, G);
+            A.cpu();
+            B.cpu();
             Matrix<fp32> C = mmul_cpu(A, B);
     
             auto diff = froebenius(C, G);
