@@ -14,6 +14,7 @@
 #include "matrix.cuh"
 #include "strassen_kernel.cuh"
 #include "test_class_matrix.cu"
+#include "verified_kernels.cuh"
 
 using std::cin;
 using std::cout;
@@ -189,6 +190,8 @@ void menu() {
     _gemm_nn_block_launcher<fp32>(A, B, C);
   };
   kernel_registry["Strassen"] = _gemm_strassen_launcher<fp32>;
+  kernel_registry["Simple V"] = _gemm_nkm_verified_launcher<fp32>;
+  kernel_registry["Blocked V"] = _gemm_nn_blocked_verified_launcher<fp32>;
 
   while (true) {
     cout << "\n=== CuTesseract Test CLI ===" << endl;

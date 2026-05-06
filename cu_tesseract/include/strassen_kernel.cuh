@@ -8,6 +8,7 @@
 #include "kernels.cuh"
 #include "matrix.cuh"
 #include "utils.cuh"
+#include "strassen_kernels_imp.cuh"
 
 template <typename T>
 __host__ void _gemm_strassen(Matrix<T> &A, Matrix<T> &B, Matrix<T> &C);
@@ -97,10 +98,10 @@ __host__ void _strassen_rec(const T *A, size_t lda, const T *B, size_t ldb,
     dim3 grid_dim((N + BS - 1) / BS, (N + BS - 1) / BS);
     size_t shared_mem_size = 2 * BS * BS * sizeof(T);
 
-    // Using optimized blocked GEMM definition from kernels.cuh
-    _gemm_nnn_block_simple<T>
+    // Using specialized Strassen leaf kernel that respects leading dimensions
+    _gemm_strassen_leaf_kernel<T>
         <<<grid_dim, block_dim, shared_mem_size, current_stream>>>(
-            const_cast<T *>(A), const_cast<T *>(B), C, N, BS);
+            A, lda, B, ldb, C, ldc, N, BS);
     return;
   }
 
