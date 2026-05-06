@@ -374,6 +374,8 @@ public:
       cpu_ptr[i + j * rows] = val;
     }
   }
+
+  __host__ DataDevice get_device() const { return device; }
 };
 
 #endif
