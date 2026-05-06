@@ -40,7 +40,7 @@ template <typename T> fp64 calculate_max_diff(Matrix<T> &A, Matrix<T> &B) {
   fp64 max_diff = 0.0;
   for (size_t i = 0; i < shapeA.first; i++) {
     for (size_t j = 0; j < shapeA.second; j++) {
-      fp64 diff = std::abs(static_cast<fp64>(A.get(i, j)) - static_cast<fp64>(B.get(i, j)));
+      fp64 diff = std::abs((fp64)(A.get(i, j)) - (fp64)(B.get(i, j)));
       if (diff > max_diff) {
         max_diff = diff;
       }
@@ -88,7 +88,7 @@ void print_heatmap(Matrix<T> &GPU_C, Matrix<T> &CPU_C, fp64 precision) {
       bool has_error = false;
       for (size_t bi = i * step_r; bi < std::min((i + 1) * step_r, rows); bi++) {
         for (size_t bj = j * step_c; bj < std::min((j + 1) * step_c, cols); bj++) {
-          if (std::abs(GPU_C.get(bi, bj) - CPU_C.get(bi, bj)) > precision) {
+          if (std::abs(static_cast<fp64>(GPU_C.get(bi, bj)) - static_cast<fp64>(CPU_C.get(bi, bj))) > precision) {
             has_error = true;
             break;
           }
