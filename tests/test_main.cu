@@ -32,15 +32,15 @@ enum class FillType { RANDOM, ONES, ZEROS };
 typedef function<void(Matrix<fp32> &, Matrix<fp32> &, Matrix<fp32> &)>
     KernelFunc;
 
-template <typename T> T calculate_max_diff(Matrix<T> &A, Matrix<T> &B) {
+template <typename T> fp64 calculate_max_diff(Matrix<T> &A, Matrix<T> &B) {
   assert(A.get_device() == CPU && B.get_device() == CPU);
   std::pair<size_t, size_t> shapeA = A.shape();
   std::pair<size_t, size_t> shapeB = B.shape();
   assert(shapeA == shapeB);
-  T max_diff = 0.0;
+  fp64 max_diff = 0.0;
   for (size_t i = 0; i < shapeA.first; i++) {
     for (size_t j = 0; j < shapeA.second; j++) {
-      T diff = std::abs(A.get(i, j) - B.get(i, j));
+      fp64 diff = std::abs(static_cast<fp64>(A.get(i, j)) - static_cast<fp64>(B.get(i, j)));
       if (diff > max_diff) {
         max_diff = diff;
       }
@@ -103,10 +103,10 @@ void print_heatmap(Matrix<T> &GPU_C, Matrix<T> &CPU_C, T precision) {
 }
 
 void verify_result(Matrix<fp32> &GPU_C, Matrix<fp32> &CPU_C,
-                   fp32 precision = 1e-3) {
+                   fp64 precision = 1e-3) {
   GPU_C.cpu();
   CPU_C.cpu();
-  fp32 max_diff = calculate_max_diff(GPU_C, CPU_C);
+  fp64 max_diff = calculate_max_diff(GPU_C, CPU_C);
   if (max_diff > precision) {
     cout << "[FAILED] Max difference: " << std::scientific << max_diff << endl;
     print_heatmap(GPU_C, CPU_C, precision);
