@@ -32,15 +32,14 @@ enum class FillType { RANDOM, ONES, ZEROS };
 typedef function<void(Matrix<fp32> &, Matrix<fp32> &, Matrix<fp32> &)>
     KernelFunc;
 
-template <typename T> fp64 calculate_max_diff(Matrix<T> &A, Matrix<T> &B) {
-  assert(A.get_device() == CPU && B.get_device() == CPU);
+template <typename T> T calculate_max_diff(Matrix<T> &A, Matrix<T> &B) {
   std::pair<size_t, size_t> shapeA = A.shape();
   std::pair<size_t, size_t> shapeB = B.shape();
   assert(shapeA == shapeB);
-  fp64 max_diff = 0.0;
+  T max_diff = 0.0;
   for (size_t i = 0; i < shapeA.first; i++) {
     for (size_t j = 0; j < shapeA.second; j++) {
-      fp64 diff = std::abs((fp64)(A.get(i, j)) - (fp64)(B.get(i, j)));
+      T diff = std::abs(A.get(i, j) - B.get(i, j));
       if (diff > max_diff) {
         max_diff = diff;
       }
@@ -69,7 +68,7 @@ template <typename T> Matrix<T> mmul_cpu(Matrix<T> &A, Matrix<T> &B) {
 }
 
 template <typename T>
-void print_heatmap(Matrix<T> &GPU_C, Matrix<T> &CPU_C, fp64 precision) {
+void print_heatmap(Matrix<T> &GPU_C, Matrix<T> &CPU_C, T precision) {
   std::pair<size_t, size_t> shapeGPU = GPU_C.shape();
   std::pair<size_t, size_t> shapeCPU = CPU_C.shape();
   assert(shapeGPU == shapeCPU);
@@ -88,7 +87,7 @@ void print_heatmap(Matrix<T> &GPU_C, Matrix<T> &CPU_C, fp64 precision) {
       bool has_error = false;
       for (size_t bi = i * step_r; bi < std::min((i + 1) * step_r, rows); bi++) {
         for (size_t bj = j * step_c; bj < std::min((j + 1) * step_c, cols); bj++) {
-          if (std::abs(static_cast<fp64>(GPU_C.get(bi, bj)) - static_cast<fp64>(CPU_C.get(bi, bj))) > precision) {
+          if (std::abs(GPU_C.get(bi, bj) - CPU_C.get(bi, bj)) > precision) {
             has_error = true;
             break;
           }
@@ -103,10 +102,9 @@ void print_heatmap(Matrix<T> &GPU_C, Matrix<T> &CPU_C, fp64 precision) {
 }
 
 void verify_result(Matrix<fp32> &GPU_C, Matrix<fp32> &CPU_C,
-                   fp64 precision = 1e-3) {
-  GPU_C.cpu();
-  CPU_C.cpu();
-  fp64 max_diff = calculate_max_diff(GPU_C, CPU_C);
+                   fp32 precision = 1e-3) {
+  assert(GPU_C.get_device() == CPU && CPU_C.get_device() == CPU);
+  fp32 max_diff = calculate_max_diff(GPU_C, CPU_C);
   if (max_diff > precision) {
     cout << "[FAILED] Max difference: " << std::scientific << max_diff << endl;
     print_heatmap(GPU_C, CPU_C, precision);
@@ -138,6 +136,7 @@ void run_test(KernelFunc kernel, size_t N, size_t K, size_t M, FillType fill,
     A.cpu();
     B.cpu();
     Matrix<fp32> C = mmul_cpu(A, B);
+    G.cpu();
     verify_result(G, C);
   }
 }
@@ -149,7 +148,6 @@ void run_benchmark(map<string, KernelFunc> &registry, size_t size = 1024,
 
   map<string, double> accumulated_times;
 
-  for (int t = 0; t < trials; t++) {
     Matrix<fp32> A(size, size, ROW_WISE, CUDA);
     Matrix<fp32> B(size, size, ROW_WISE, CUDA);
     A.fill_random((unsigned long long)t);
