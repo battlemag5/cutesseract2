@@ -69,7 +69,7 @@ template <typename T> Matrix<T> mmul_cpu(Matrix<T> &A, Matrix<T> &B) {
 }
 
 template <typename T>
-void print_heatmap(Matrix<T> &GPU_C, Matrix<T> &CPU_C, T precision) {
+void print_heatmap(Matrix<T> &GPU_C, Matrix<T> &CPU_C, fp64 precision) {
   std::pair<size_t, size_t> shapeGPU = GPU_C.shape();
   std::pair<size_t, size_t> shapeCPU = CPU_C.shape();
   assert(shapeGPU == shapeCPU);
