@@ -296,7 +296,7 @@ private:
 
   __host__ void compute_contiguous_strides() {
     size_t s = 1;
-    for (int i = static_cast<int>(ndim) - 1; i >= 0; --i) {
+    for (size_t i = ndim - 1; i >= 0; --i) {
       strides_[i] = s;
       s *= shape_[i];
     }
