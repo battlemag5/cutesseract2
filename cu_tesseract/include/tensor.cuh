@@ -10,16 +10,6 @@
 #include "dtypes.cuh"
 #include "utils.cuh"
 
-enum class DataLayout {
-  ROW_WISE,
-  COL_WISE,
-};
-
-enum class DataDevice {
-  CPU,
-  CUDA,
-};
-
 template <typename T>
 class Tensor {
   T *cpu_ptr;

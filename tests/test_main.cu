@@ -194,6 +194,7 @@ void menu() {
   kernel_registry["Strassen"] = _gemm_strassen_launcher<fp32>;
   kernel_registry["WMMA"] = [](Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
   kernel_registry["GEMM_ND"] = [](Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
+  kernel_registry["GEMM_NKM_STRIDED"] = [](Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
     size_t N = A.shape().first;
     size_t K = A.shape().second;
     size_t M = B.shape().second;
