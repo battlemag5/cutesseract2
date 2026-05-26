@@ -159,45 +159,63 @@ public:
     std::swap(layout, other.layout);
   }
 
-  __host__ void fill_random(unsigned long long seed = 812ULL) {
-    size_t rows = this->get_shape(0);
-    size_t cols = this->get_shape(1);
-    if (this->device == DataDevice::CUDA) {
+__host__ void fill_random(unsigned long long seed = 812ULL) {
+    if (device == DataDevice::CUDA) {
       curandGenerator_t gen;
-      curandStatus_t status;
-      status = curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
-      if (status != CURAND_STATUS_SUCCESS) {
-        throw std::runtime_error("curandCreateGenerator failed: " + std::to_string(status));
-      }
-      status = curandSetPseudoRandomGeneratorSeed(gen, seed);
-      if (status != CURAND_STATUS_SUCCESS) {
-        curandDestroyGenerator(gen);
-        throw std::runtime_error("curandSetPseudoRandomGeneratorSeed failed: " + std::to_string(status));
-      }
-      if constexpr (sizeof(T) == sizeof(fp32)) {
-        status = curandGenerateUniform(gen, (float*)this->item(), rows * cols);
-      } else {
-        status = curandGenerateUniformDouble(gen, (double*)this->item(), rows * cols);
-      }
-      if (status != CURAND_STATUS_SUCCESS) {
-        curandDestroyGenerator(gen);
-        throw std::runtime_error("curandGenerateUniform failed: " + std::to_string(status));
-      }
+      curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
+      curandSetPseudoRandomGeneratorSeed(gen, seed);
+      assert(sizeof(T) == sizeof(fp32));
+      curandGenerateUniform(gen, device_ptr, rows * cols);
+      // else
+      //     curandGenerateUniformDouble(gen, device_ptr, rows * cols);
       curandDestroyGenerator(gen);
     } else {
       std::mt19937 gen(seed);
-      T* ptr = this->item();
-      if constexpr (sizeof(T) == sizeof(fp32)) {
-        std::uniform_real_distribution<fp32> dis(0.0f, 1.0f);
-        for (size_t i = 0; i < rows * cols; i++)
-          ptr[i] = dis(gen);
-      } else {
-        std::uniform_real_distribution<double> dis(0.0, 1.0);
-        for (size_t i = 0; i < rows * cols; i++)
-          ptr[i] = dis(gen);
-      }
+      std::uniform_real_distribution<T> dis(0.0, 1.0);
+      for (size_t i = 0; i < rows * cols; i++)
+        cpu_ptr[i] = dis(gen);
     }
   }
+
+  // __host__ void fill_random(unsigned long long seed = 812ULL) {
+  //   size_t rows = this->get_shape(0);
+  //   size_t cols = this->get_shape(1);
+  //   if (this->device == DataDevice::CUDA) {
+  //     curandGenerator_t gen;
+  //     curandStatus_t status;
+  //     status = curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
+  //     if (status != CURAND_STATUS_SUCCESS) {
+  //       throw std::runtime_error("curandCreateGenerator failed: " + std::to_string(status));
+  //     }
+  //     status = curandSetPseudoRandomGeneratorSeed(gen, seed);
+  //     if (status != CURAND_STATUS_SUCCESS) {
+  //       curandDestroyGenerator(gen);
+  //       throw std::runtime_error("curandSetPseudoRandomGeneratorSeed failed: " + std::to_string(status));
+  //     }
+  //     if constexpr (sizeof(T) == sizeof(fp32)) {
+  //       status = curandGenerateUniform(gen, (float*)this->item(), rows * cols);
+  //     } else {
+  //       status = curandGenerateUniformDouble(gen, (double*)this->item(), rows * cols);
+  //     }
+  //     if (status != CURAND_STATUS_SUCCESS) {
+  //       curandDestroyGenerator(gen);
+  //       throw std::runtime_error("curandGenerateUniform failed: " + std::to_string(status));
+  //     }
+  //     curandDestroyGenerator(gen);
+  //   } else {
+  //     std::mt19937 gen(seed);
+  //     T* ptr = this->item();
+  //     if constexpr (sizeof(T) == sizeof(fp32)) {
+  //       std::uniform_real_distribution<fp32> dis(0.0f, 1.0f);
+  //       for (size_t i = 0; i < rows * cols; i++)
+  //         ptr[i] = dis(gen);
+  //     } else {
+  //       std::uniform_real_distribution<double> dis(0.0, 1.0);
+  //       for (size_t i = 0; i < rows * cols; i++)
+  //         ptr[i] = dis(gen);
+  //     }
+  //   }
+  // }
 
   __host__ void fill_const(T val) {
     size_t rows = this->get_shape(0);
