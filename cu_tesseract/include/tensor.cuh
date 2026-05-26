@@ -270,6 +270,7 @@ public:
     std::swap(device, other.device);
     std::swap(ndim, other.ndim);
     std::swap(capacity_, other.capacity_);
+    std::swap(foreign_pointer, other.foreign_pointer);
     for (size_t i = 0; i < 8; ++i) {
       std::swap(shape_[i], other.shape_[i]);
       std::swap(strides_[i], other.strides_[i]);

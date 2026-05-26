@@ -232,7 +232,7 @@ __host__ void test_subview_2d() {
 
   // Modifying subview should modify original (shared pointer)
   sv.item()[1 * sv.get_stride(0) + 1 * sv.get_stride(1)] = 99.0f;
-  assert(t.item()[1 * 4 + 1] == 99.0f);
+  assert(t.item()[(1 + 1) * 4 + (1 + 1)] == 99.0f); // sv(1,1) is t(2,2)
 
   cout << "[PASSED] test_subview_2d" << endl;
 }
