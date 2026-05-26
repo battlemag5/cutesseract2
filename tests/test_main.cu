@@ -245,6 +245,7 @@ void run_benchmark(map<string, KernelFunc> &registry, size_t size = 1024,
     CUDA_CHECK(cudaDeviceSynchronize());
 
     for (auto const &[name, kernel] : registry) {
+      if (!kernel) continue;
       Matrix<fp32> C(size, size, DataLayout::ROW_WISE, DataDevice::CUDA);
       auto start = std::chrono::high_resolution_clock::now();
       kernel(A, B, C);
@@ -257,6 +258,7 @@ void run_benchmark(map<string, KernelFunc> &registry, size_t size = 1024,
   }
 
   for (auto const &[name, kernel] : registry) {
+    if (!kernel) continue;
     cout << std::left << std::setw(12) << name << ": " << std::fixed
          << std::setprecision(3) << accumulated_times[name] / trials << " ms"
          << endl;
