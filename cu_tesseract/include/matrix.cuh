@@ -1,3 +1,6 @@
+#ifndef MATRIX_CUH
+#define MATRIX_CUH
+
 #include "dtypes.cuh"
 #include "utils.cuh"
 #include "MatrixView.cuh"
