@@ -293,12 +293,4 @@ public:
 private:
   __host__ Tensor() : cpu_ptr(nullptr), device_ptr(nullptr), ndim(0),
                       capacity_(0), device(DataDevice::CPU) {}
-
-  __host__ void compute_contiguous_strides() {
-    size_t s = 1;
-    for (size_t i = ndim - 1; i >= 0; --i) {
-      strides_[i] = s;
-      s *= shape_[i];
-    }
-  }
 };
