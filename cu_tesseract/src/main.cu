@@ -124,6 +124,10 @@ test_nd_3d(Tensor<fp32> &A, Tensor<fp32> &B, Tensor<fp32> &C) {
 }
 
 signed main() {
+    cout << "=== CuTesseract Performance Benchmark ===\n";
+    cout << "Matrix sizes: " << n << "x" << k << " and " << k << "x" << m << "\n";
+    cout << "WMMA sizes: " << n_wmma << "x" << k_wmma << " and " << k_wmma << "x" << m_wmma << "\n";
+    cout << "ND (3D) sizes: " << b_3d << "x" << n_3d << "x" << k_3d << " and " << b_3d << "x" << k_3d << "x" << m_3d << "\n\n";
 
     size_t num_tries = 16;
 
