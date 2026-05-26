@@ -67,15 +67,15 @@ template <typename T>
 __host__ void _gemm_nn_block_launcher(Matrix<T> &A, Matrix<T> &B, Matrix<T> &C,
                                       size_t BS = 16) {
   size_t N = A.get_shape(0);
-  assert(A.get_shape(0) == N && A.get_shape(1) == N);
-  assert(B.get_shape(0) == N && B.get_shape(1) == N);
-  assert(C.get_shape(0) == N && C.get_shape(1) == N);
+  if (!(A.get_shape(0) == N && A.get_shape(1) == N)) throw std::invalid_argument("A must be square");
+  if (!(B.get_shape(0) == N && B.get_shape(1) == N)) throw std::invalid_argument("B must be square");
+  if (!(C.get_shape(0) == N && C.get_shape(1) == N)) throw std::invalid_argument("C must be square");
 
-  assert((N % BS) == 0);
+  if ((N % BS) != 0) throw std::invalid_argument("N must be divisible by BS");
 
-  assert(A.get_layout() == DataLayout::ROW_WISE);
-  assert(B.get_layout() == DataLayout::ROW_WISE);
-  assert(C.get_layout() == DataLayout::ROW_WISE);
+  if (A.get_layout() != DataLayout::ROW_WISE) throw std::invalid_argument("A must be ROW_WISE");
+  if (B.get_layout() != DataLayout::ROW_WISE) throw std::invalid_argument("B must be ROW_WISE");
+  if (C.get_layout() != DataLayout::ROW_WISE) throw std::invalid_argument("C must be ROW_WISE");
 
   A.cuda();
   B.cuda();
