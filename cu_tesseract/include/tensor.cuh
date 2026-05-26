@@ -6,6 +6,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 #include "dtypes.cuh"
 #include "utils.cuh"
