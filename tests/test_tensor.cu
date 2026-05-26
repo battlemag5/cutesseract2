@@ -388,7 +388,6 @@ int main() {
   test_set_stride();
   test_shape_stride_data();
 
-  cout << "
-=== All Tensor Tests Passed ===" << endl;
+  cout << "\n=== All Tensor Tests Passed ===" << endl;
   return 0;
 }

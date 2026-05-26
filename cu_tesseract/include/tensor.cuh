@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
+#include <random>
 
 #include "dtypes.cuh"
 #include "utils.cuh"
@@ -215,6 +216,22 @@ public:
     cpu_ptr = nullptr;
     device_ptr = new_ptr;
     device = DataDevice::CUDA;
+  }
+
+  __host__ void fill_random(unsigned long long seed = 812ULL) {
+    if (device == DataDevice::CUDA) {
+      curandGenerator_t gen;
+      CURAND_CHECK(curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT));
+      CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, seed));
+      assert(sizeof(T) == sizeof(fp32));
+      CURAND_CHECK(curandGenerateUniform(gen, (float*)device_ptr, capacity_));
+      CURAND_CHECK(curandDestroyGenerator(gen));
+    } else {
+      std::mt19937 gen(seed);
+      std::uniform_real_distribution<T> dis(0.0, 1.0);
+      for (size_t i = 0; i < capacity_; i++)
+        cpu_ptr[i] = dis(gen);
+    }
   }
 
   __host__ Tensor subview(const std::vector<size_t>& offsets,
