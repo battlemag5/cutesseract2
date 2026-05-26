@@ -36,12 +36,14 @@ typedef function<void(Matrix<fp32> &, Matrix<fp32> &, Matrix<fp32> &)>
 
 template <typename T> T calculate_max_diff(Matrix<T> &A, Matrix<T> &B) {
   assert(A.device == DataDevice::CPU && B.device == DataDevice::CPU);
-  std::pair<size_t, size_t> shapeA = A.shape();
-  std::pair<size_t, size_t> shapeB = B.shape();
-  assert(shapeA == shapeB);
+  size_t rowsA = A.get_shape(0);
+  size_t colsA = A.get_shape(1);
+  size_t rowsB = B.get_shape(0);
+  size_t colsB = B.get_shape(1);
+  assert(rowsA == rowsB && colsA == colsB);
   T max_diff = 0.0;
-  for (size_t i = 0; i < shapeA.first; i++) {
-    for (size_t j = 0; j < shapeA.second; j++) {
+  for (size_t i = 0; i < rowsA; i++) {
+    for (size_t j = 0; j < colsA; j++) {
       T diff = std::abs(A.get(i, j) - B.get(i, j));
       if (diff > max_diff) {
         max_diff = diff;
@@ -53,15 +55,17 @@ template <typename T> T calculate_max_diff(Matrix<T> &A, Matrix<T> &B) {
 
 template <typename T> Matrix<T> mmul_cpu(Matrix<T> &A, Matrix<T> &B) {
   assert(A.device == DataDevice::CPU && B.device == DataDevice::CPU);
-  std::pair<size_t, size_t> shapeA = A.shape();
-  std::pair<size_t, size_t> shapeB = B.shape();
+  size_t rowsA = A.get_shape(0);
+  size_t colsA = A.get_shape(1);
+  size_t rowsB = B.get_shape(0);
+  size_t colsB = B.get_shape(1);
 
-  assert(shapeA.second == shapeB.first);
-  Matrix<T> C(shapeA.first, shapeB.second, DataLayout::ROW_WISE, DataDevice::CPU);
-  for (size_t i = 0; i < shapeA.first; i++) {
-    for (size_t j = 0; j < shapeB.second; j++) {
+  assert(colsA == rowsB);
+  Matrix<T> C(rowsA, colsB, DataLayout::ROW_WISE, DataDevice::CPU);
+  for (size_t i = 0; i < rowsA; i++) {
+    for (size_t j = 0; j < colsB; j++) {
       double sum = 0.0;
-      for (size_t r = 0; r < shapeA.second; r++) {
+      for (size_t r = 0; r < colsA; r++) {
         sum += (double)A.get(i, r) * (double)B.get(r, j);
       }
       C.set(i, j, (T)sum);
@@ -72,12 +76,14 @@ template <typename T> Matrix<T> mmul_cpu(Matrix<T> &A, Matrix<T> &B) {
 
 template <typename T>
 void print_heatmap(Matrix<T> &GPU_C, Matrix<T> &CPU_C, T precision) {
-  std::pair<size_t, size_t> shapeGPU = GPU_C.shape();
-  std::pair<size_t, size_t> shapeCPU = CPU_C.shape();
-  assert(shapeGPU == shapeCPU);
+  size_t rowsGPU = GPU_C.get_shape(0);
+  size_t colsGPU = GPU_C.get_shape(1);
+  size_t rowsCPU = CPU_C.get_shape(0);
+  size_t colsCPU = CPU_C.get_shape(1);
+  assert(rowsGPU == rowsCPU && colsGPU == colsCPU);
   assert(GPU_C.device == DataDevice::CPU && CPU_C.device == DataDevice::CPU);
-  size_t rows = shapeGPU.first;
-  size_t cols = shapeGPU.second;
+  size_t rows = rowsGPU;
+  size_t cols = colsGPU;
   size_t grid_r = std::min(rows, (size_t)32);
   size_t grid_c = std::min(cols, (size_t)32);
   size_t step_r = (rows + grid_r - 1) / grid_r;
@@ -186,18 +192,16 @@ void iterative_stress_test(KernelFunc kernel) {
 
 void menu() {
   map<string, KernelFunc> kernel_registry;
-  kernel_registry["Simple"] = _gemm_nkm_simple_launcher<fp32>;
+  kernel_registry["Simpe"] = _gemm_nkm_simple_launcher<fp32>;
   kernel_registry["Blocked"] = [](Matrix<fp32> &A, Matrix<fp32> &B,
                                   Matrix<fp32> &C) {
     _gemm_nn_block_launcher<fp32>(A, B, C);
   };
   kernel_registry["Strassen"] = _gemm_strassen_launcher<fp32>;
   kernel_registry["WMMA"] = [](Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
-  kernel_registry["GEMM_ND"] = [](Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
-  kernel_registry["GEMM_NKM_STRIDED"] = [](Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
-    size_t N = A.shape().first;
-    size_t K = A.shape().second;
-    size_t M = B.shape().second;
+    size_t N = A.get_shape(0);
+    size_t K = A.get_shape(1);
+    size_t M = B.get_shape(1);
 
     Matrix<fp16> A_fp16(N, K, DataLayout::ROW_WISE, DataDevice::CUDA);
     Matrix<fp16> B_fp16(K, M, DataLayout::ROW_WISE, DataDevice::CUDA);
@@ -207,6 +211,12 @@ void menu() {
     castFp32ToFp16<<<(K * M + threads - 1) / threads, threads>>>(B.item(), B_fp16.item(), K * M);
     CUDA_CHECK(cudaDeviceSynchronize());
     _gemm_nkm_wmma_launcher(A_fp16, B_fp16, C);
+  };
+  kernel_registry["ND"] = [](Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
+    gemm_nd<fp32>(A, B, C);
+  };
+  kernel_registry["Strided"] = [](Matrix<fp32> &A, Matrix<fp32> &B, Matrix<fp32> &C) {
+    gemm_nkm_strided<fp32>(A, B, C);
   };
 
   while (true) {

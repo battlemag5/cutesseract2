@@ -170,6 +170,15 @@ public:
   __host__ __device__ size_t get_ndim() const { return ndim; }
   __host__ __device__ size_t get_shape(size_t d) const { return shape_[d]; }
   __host__ __device__ size_t get_stride(size_t d) const { return strides_[d]; }
+  __host__ void set_stride(size_t d, size_t s) { strides_[d] = s; }
+
+  __host__ void compute_contiguous_strides() {
+    size_t s = 1;
+    for (int i = static_cast<int>(ndim) - 1; i >= 0; --i) {
+      strides_[i] = s;
+      s *= shape_[i];
+    }
+  }
 
   __host__ const size_t* shape_data() const { return shape_; }
   __host__ const size_t* stride_data() const { return strides_; }

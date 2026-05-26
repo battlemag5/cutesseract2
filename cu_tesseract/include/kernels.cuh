@@ -66,10 +66,10 @@ static __global__ void _gemm_nnn_block_simple(T *A, // row-wise
 template <typename T>
 __host__ void _gemm_nn_block_launcher(Matrix<T> &A, Matrix<T> &B, Matrix<T> &C,
                                       size_t BS = 16) {
-  size_t N = A.shape().first;
-  assert(A.shape().first == N && A.shape().second == N);
-  assert(B.shape().first == N && B.shape().second == N);
-  assert(C.shape().first == N && C.shape().second == N);
+  size_t N = A.get_shape(0);
+  assert(A.get_shape(0) == N && A.get_shape(1) == N);
+  assert(B.get_shape(0) == N && B.get_shape(1) == N);
+  assert(C.get_shape(0) == N && C.get_shape(1) == N);
 
   assert((N % BS) == 0);
 
@@ -113,12 +113,12 @@ static __global__ void _gemm_nkm_simple(T *A, // row-wise
 template <typename T> // n*k x k*m = n*m
 __host__ void _gemm_nkm_simple_launcher(Matrix<T> &A, Matrix<T> &B,
                                         Matrix<T> &C) {
-  size_t N = A.shape().first;
-  size_t K = A.shape().second;
-  size_t M = B.shape().second;
+  size_t N = A.get_shape(0);
+  size_t K = A.get_shape(1);
+  size_t M = B.get_shape(1);
 
-  assert(B.shape().first == K);
-  assert(C.shape().first == N && C.shape().second == M);
+  assert(B.get_shape(0) == K);
+  assert(C.get_shape(0) == N && C.get_shape(1) == M);
 
   assert(A.get_layout() == DataLayout::ROW_WISE);
   assert(B.get_layout() == DataLayout::ROW_WISE);
@@ -217,9 +217,9 @@ template <typename T = fp16>
 requires std::is_same_v<T, fp16> || std::is_same_v<T, bf16>
 __host__ void _gemm_nkm_wmma_launcher(Matrix<T> &A, Matrix<T> &B, Matrix<fp32> &C) {
 
-    size_t N = A.shape().first;
-    size_t K = A.shape().second;
-    size_t M = B.shape().second;
+    size_t N = A.get_shape(0);
+    size_t K = A.get_shape(1);
+    size_t M = B.get_shape(1);
 
     assert(A.get_layout() == DataLayout::ROW_WISE);
     assert(B.get_layout() == DataLayout::ROW_WISE);
