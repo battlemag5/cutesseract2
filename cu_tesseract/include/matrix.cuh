@@ -162,35 +162,6 @@ public:
     Tensor<T>::fill_random(seed);
   }
 
-  __host__ void fill_const(T val) {
-    size_t rows = this->get_shape(0);
-    size_t cols = this->get_shape(1);
-    T* ptr = this->item();
-    if (this->device == DataDevice::CUDA) {
-      T *h_ptr = new T[rows * cols];
-      for (size_t i = 0; i < rows * cols; i++)
-        h_ptr[i] = val;
-      CUDA_CHECK(
-          cudaMemcpy(ptr, h_ptr, rows * cols * sizeof(T), cudaMemcpyHostToDevice));
-      delete[] h_ptr;
-    } else {
-      for (size_t i = 0; i < rows * cols; i++)
-        ptr[i] = val;
-    }
-  }
-
-  __host__ void ones() { fill_const((T)1.0); }
-
-  __host__ void zeros() {
-    size_t rows = this->get_shape(0);
-    size_t cols = this->get_shape(1);
-    if (this->device == DataDevice::CUDA) {
-      CUDA_CHECK(cudaMemset(this->item(), 0, rows * cols * sizeof(T)));
-    } else {
-      memset(this->item(), 0, rows * cols * sizeof(T));
-    }
-  }
-
   __host__ void to_layout(DataLayout new_layout) {
     if (layout == new_layout)
       return;

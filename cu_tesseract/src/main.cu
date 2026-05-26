@@ -124,6 +124,8 @@ test_nd_3d(Tensor<fp32> &A, Tensor<fp32> &B, Tensor<fp32> &C) {
 }
 
 signed main() {
+    size_t b_3d = 8, n_3d = 1024, k_3d = 1024, m_3d = 1024;
+
     cout << "=== CuTesseract Performance Benchmark ===\n";
     cout << "Matrix sizes: " << n << "x" << k << " and " << k << "x" << m << "\n";
     cout << "WMMA sizes: " << n_wmma << "x" << k_wmma << " and " << k_wmma << "x" << m_wmma << "\n";
@@ -143,8 +145,6 @@ signed main() {
 
     Matrix<fp32> *A, *B, *C, *A_wmma, *B_wmma, *C_wmma;
     Tensor<fp32> *A_3d, *B_3d, *C_3d;
-
-    size_t b_3d = 8, n_3d = 1024, k_3d = 1024, m_3d = 1024;
 
     for (size_t i = 0; i < num_tries + 1; i++) {
         A = new Matrix<fp32>((size_t)n, (size_t)k, DataLayout::ROW_WISE, DataDevice::CUDA);

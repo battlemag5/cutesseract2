@@ -234,6 +234,27 @@ public:
     }
   }
 
+  __host__ void fill_const(T val) {
+    if (device == DataDevice::CUDA) {
+      T *h_ptr = new T[capacity_];
+      for (size_t i = 0; i < capacity_; i++) h_ptr[i] = val;
+      CUDA_CHECK(cudaMemcpy(device_ptr, h_ptr, capacity_ * sizeof(T), cudaMemcpyHostToDevice));
+      delete[] h_ptr;
+    } else {
+      for (size_t i = 0; i < capacity_; i++) cpu_ptr[i] = val;
+    }
+  }
+
+  __host__ void zeros() {
+    if (device == DataDevice::CUDA) {
+      CUDA_CHECK(cudaMemset(device_ptr, 0, capacity_ * sizeof(T)));
+    } else {
+      memset(cpu_ptr, 0, capacity_ * sizeof(T));
+    }
+  }
+
+  __host__ void ones() { fill_const((T)1.0); }
+
   __host__ Tensor subview(const std::vector<size_t>& offsets,
                           const std::vector<size_t>& sizes) const {
     assert(offsets.size() == ndim && sizes.size() == ndim);
