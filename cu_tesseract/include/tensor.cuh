@@ -195,23 +195,26 @@ public:
   __host__ void cpu() {
     if (device == DataDevice::CPU) return;
 
-    device = DataDevice::CPU;
-    cpu_ptr = new T[capacity_];
-    CUDA_CHECK(cudaMemcpy(cpu_ptr, device_ptr, capacity_ * sizeof(T),
+    T* new_ptr = new T[capacity_];
+    CUDA_CHECK(cudaMemcpy(new_ptr, device_ptr, capacity_ * sizeof(T),
                           cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaFree(device_ptr));
     device_ptr = nullptr;
+    cpu_ptr = new_ptr;
+    device = DataDevice::CPU;
   }
 
   __host__ void cuda() {
     if (device == DataDevice::CUDA) return;
 
-    device = DataDevice::CUDA;
-    CUDA_CHECK(cudaMalloc(&device_ptr, capacity_ * sizeof(T)));
-    CUDA_CHECK(cudaMemcpy(device_ptr, cpu_ptr, capacity_ * sizeof(T),
+    T* new_ptr = nullptr;
+    CUDA_CHECK(cudaMalloc(&new_ptr, capacity_ * sizeof(T)));
+    CUDA_CHECK(cudaMemcpy(new_ptr, cpu_ptr, capacity_ * sizeof(T),
                           cudaMemcpyHostToDevice));
     delete[] cpu_ptr;
     cpu_ptr = nullptr;
+    device_ptr = new_ptr;
+    device = DataDevice::CUDA;
   }
 
   __host__ Tensor subview(const std::vector<size_t>& offsets,
