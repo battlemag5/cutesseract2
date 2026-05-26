@@ -288,8 +288,7 @@ __host__ void test_num_elements() {
 
 __host__ void test_scalar_tensor() {
   Tensor<fp32> t({});
-  assert(t.get_ndim() == 1);
-  assert(t.get_shape(0) == 1);
+  assert(t.get_ndim() == 0);
   assert(t.num_elements() == 1);
   t.item()[0] = 42.0f;
   assert(t.item()[0] == 42.0f);
