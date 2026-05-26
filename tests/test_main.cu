@@ -276,9 +276,15 @@ void run_benchmark(map<string, KernelFunc> &registry, size_t size = 1024,
 }
 
 void iterative_stress_test(KernelFunc kernel) {
-  for (size_t size = 16; size <= 1024; size *= 2) {
+  for (size_t size = 16; size <= 4096; size *= 2) {
     cout << "\n--- Size: " << size << "x" << size << " ---" << endl;
-    run_test(kernel, size, size, size, FillType::RANDOM, 1);
+    try{
+      run_test(kernel, size, size, size, FillType::RANDOM, 1);
+    }
+    catch (const std::exception& e) {
+      cout << "Error at size " << size << ": " << e.what() << endl;
+      break;
+    }
   }
 }
 
