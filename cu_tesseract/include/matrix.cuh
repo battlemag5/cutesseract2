@@ -164,11 +164,11 @@ public:
     size_t cols = this->get_shape(1);
     if (this->device == DataDevice::CUDA) {
       curandGenerator_t gen;
-      curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
-      curandSetPseudoRandomGeneratorSeed(gen, seed);
+      CURAND_CHECK(curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT));
+      CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, seed));
       assert(sizeof(T) == sizeof(fp32));
-      curandGenerateUniform(gen, (float*)this->item(), rows * cols);
-      curandDestroyGenerator(gen);
+      CURAND_CHECK(curandGenerateUniform(gen, (float*)this->item(), rows * cols));
+      CURAND_CHECK(curandDestroyGenerator(gen));
     } else {
       std::mt19937 gen(seed);
       std::uniform_real_distribution<T> dis(0.0, 1.0);
