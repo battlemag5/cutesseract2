@@ -164,17 +164,38 @@ public:
     size_t cols = this->get_shape(1);
     if (this->device == DataDevice::CUDA) {
       curandGenerator_t gen;
-      CURAND_CHECK(curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT));
-      CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, seed));
-      assert(sizeof(T) == sizeof(fp32));
-      CURAND_CHECK(curandGenerateUniform(gen, (float*)this->item(), rows * cols));
-      CURAND_CHECK(curandDestroyGenerator(gen));
+      curandStatus_t status;
+      status = curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
+      if (status != CURAND_STATUS_SUCCESS) {
+        throw std::runtime_error("curandCreateGenerator failed: " + std::to_string(status));
+      }
+      status = curandSetPseudoRandomGeneratorSeed(gen, seed);
+      if (status != CURAND_STATUS_SUCCESS) {
+        curandDestroyGenerator(gen);
+        throw std::runtime_error("curandSetPseudoRandomGeneratorSeed failed: " + std::to_string(status));
+      }
+      if constexpr (sizeof(T) == sizeof(fp32)) {
+        status = curandGenerateUniform(gen, (float*)this->item(), rows * cols);
+      } else {
+        status = curandGenerateUniformDouble(gen, (double*)this->item(), rows * cols);
+      }
+      if (status != CURAND_STATUS_SUCCESS) {
+        curandDestroyGenerator(gen);
+        throw std::runtime_error("curandGenerateUniform failed: " + std::to_string(status));
+      }
+      curandDestroyGenerator(gen);
     } else {
       std::mt19937 gen(seed);
-      std::uniform_real_distribution<T> dis(0.0, 1.0);
       T* ptr = this->item();
-      for (size_t i = 0; i < rows * cols; i++)
-        ptr[i] = dis(gen);
+      if constexpr (sizeof(T) == sizeof(fp32)) {
+        std::uniform_real_distribution<fp32> dis(0.0f, 1.0f);
+        for (size_t i = 0; i < rows * cols; i++)
+          ptr[i] = dis(gen);
+      } else {
+        std::uniform_real_distribution<double> dis(0.0, 1.0);
+        for (size_t i = 0; i < rows * cols; i++)
+          ptr[i] = dis(gen);
+      }
     }
   }
 
