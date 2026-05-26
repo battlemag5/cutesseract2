@@ -13,14 +13,13 @@ template <typename T> class Matrix : public Tensor<T> {
 
 public:
   __host__ Matrix(size_t rows, size_t cols, DataLayout layout,
-                  DataDevice device)
+                  DataDevice target_device)
       : Tensor<T>({rows, cols}), layout(layout) {
-    this->device = device;
     if (layout == DataLayout::COL_WISE) {
         // We need to recompute strides for COL_WISE
         this->set_col_wise_strides();
     }
-    if (device == DataDevice::CUDA) {
+    if (target_device == DataDevice::CUDA) {
       this->cuda();
     }
   }
