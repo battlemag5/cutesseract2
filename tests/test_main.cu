@@ -194,7 +194,12 @@ void run_test_nd(vector<size_t> shape_A, vector<size_t> shape_B, FillType fill) 
     A.zeros(); B.zeros();
   }
 
+  auto start = std::chrono::high_resolution_clock::now();
   gemm_nd<fp32>(A, B, G);
+  CUDA_CHECK(cudaDeviceSynchronize());
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::milli> duration = end - start;
+  cout << "Execution time: " << duration.count() << " ms" << endl;
 
   A.cpu(); B.cpu(); G.cpu();
   Tensor<fp32> C_cpu(shape_C);
@@ -220,7 +225,12 @@ void run_test(KernelFunc kernel, size_t N, size_t K, size_t M, FillType fill,
       B.zeros();
     }
 
+    auto start = std::chrono::high_resolution_clock::now();
     kernel(A, B, G);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> duration = end - start;
+    cout << "Execution time: " << duration.count() << " ms" << endl;
 
     A.cpu();
     B.cpu();
@@ -269,6 +279,22 @@ void iterative_stress_test(KernelFunc kernel) {
   for (size_t size = 16; size <= 1024; size *= 2) {
     cout << "\n--- Size: " << size << "x" << size << " ---" << endl;
     run_test(kernel, size, size, size, FillType::RANDOM, 1);
+  }
+}
+
+void iterative_stress_test_nd() {
+  for (int d = 2; d <= 6; ++d) {
+    vector<size_t> shape_A(d, 2);
+    shape_A[d - 2] = 256;
+    shape_A[d - 1] = 256;
+    vector<size_t> shape_B(d, 2);
+    shape_B[d - 2] = 256;
+    shape_B[d - 1] = 256;
+
+    cout << "\n--- ND Dimensions: " << d << " (Batch: ";
+    for (int i = 0; i < d - 2; i++) cout << "2 ";
+    cout << ") Matrix: 256x256 ---" << endl;
+    run_test_nd(shape_A, shape_B, FillType::RANDOM);
   }
 }
 
@@ -359,7 +385,11 @@ void menu() {
         if (n == 0) { n = 512; k = 512; m = 512; }
         run_test(kernel, n, k, m, fill, 1);
       } else {
-        iterative_stress_test(kernel);
+        if (kernel_name == "ND") {
+          iterative_stress_test_nd();
+        } else {
+          iterative_stress_test(kernel);
+        }
       }
     } else if (choice == 5)
       break;
